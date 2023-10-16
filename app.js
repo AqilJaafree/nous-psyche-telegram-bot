@@ -5,7 +5,7 @@ var logger = require('morgan');
 const { Telegraf, Markup } = require('telegraf');
 const { ethers } = require('ethers');
 const { getBotState, setBotState } = require('./storage');
-const { processQuery } = require('./logic');
+const { processQuery, getHolderFromContract } = require('./logic');
 
 require('dotenv').config();
 
@@ -39,18 +39,34 @@ bot.mention(process.env.BOT_NAME, (ctx) => {
   processQuery(ctx);
 });
 
-bot.command('register', (ctx) => {
+/**
+ * To register this bot, user need to submit
+ * token id, and api key
+ */
+bot.command('register', async (ctx) => {
+  // Check if the bot active
+  const chatId = ctx.chat.id;
+  getBotState(chatId, (err, row) => {
+    if (err) {
+      return ctx.reply('An error occurred.');
+    }
+
+    if (row && row.isActive === 1) {
+      return ctx.reply('Bot is already active');
+    }
+  });
+
   if (!ctx.payload) {
     bot.telegram.sendMessage(ctx.chat.id, 'No payload during register', {});
     return;
   }
 
-  const data = ctx.payload.split(' ');
+  const data = ctx.payload.split('/');
 
   if (data.length != 2) {
     bot.telegram.sendMessage(
       ctx.chat.id,
-      'Invalid payload format. Please follow `/register <SIGNATURE> <ADDRESS>',
+      'Invalid payload format. Please follow `/register <SIGNATURE>/<TOKEN_ID>',
       {}
     );
     return;
@@ -58,10 +74,11 @@ bot.command('register', (ctx) => {
 
   try {
     const signerAddress = ethers.verifyMessage('Hi', data[0]);
-    if (signerAddress === data[1]) {
-      const chatId = ctx.chat.id;
+    const chatId = ctx.chat.id;
+    const owner = await getHolderFromContract(data[1]);
+
+    if (signerAddress.toLowerCase() === owner.toLowerCase()) {
       setBotState(chatId, 1, (err) => {
-        console.log('test');
         if (err) {
           return ctx.reply('An error occurred.');
         }
@@ -71,6 +88,12 @@ bot.command('register', (ctx) => {
           {}
         );
       });
+    } else {
+      bot.telegram.sendMessage(
+        ctx.chat.id,
+        `NOUS activation failed for this group.`,
+        {}
+      );
     }
   } catch (e) {
     console.log(e);

@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { ethers } = require('ethers');
 
 function processQuery(ctx) {
   if (!ctx.message || !ctx.message.text) {
@@ -40,6 +41,29 @@ function processQuery(ctx) {
     });
 }
 
+async function getHolderFromContract(token_id) {
+  try {
+    const contractAddress = process.env.NFT_CONTRACT_ADDRESS;
+    const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+
+    const abi = [
+      {
+        inputs: [{ internalType: 'uint256', name: 'tokenId', type: 'uint256' }],
+        name: 'ownerOf',
+        outputs: [{ internalType: 'address', name: '', type: 'address' }],
+        stateMutability: 'view',
+        type: 'function',
+      },
+    ];
+    const contract = new ethers.Contract(contractAddress, abi, provider);
+    const nftOwner = await contract.ownerOf(token_id);
+    return nftOwner;
+  } catch (e) {
+    console.log(e);
+  }
+}
+
 module.exports = {
   processQuery,
+  getHolderFromContract,
 };

@@ -11,7 +11,7 @@ const db = new sqlite3.Database(`database/${process.env.DB_NAME}`, (err) => {
 
 // Create table if not exists
 db.run(
-  'CREATE TABLE IF NOT EXISTS state (chat_id TEXT PRIMARY KEY, isActive INTEGER)',
+  'CREATE TABLE IF NOT EXISTS state (chat_id TEXT PRIMARY KEY, tokenId TEXT, owner_address TEXT, isActive INTEGER)',
   (err) => {
     if (err) {
       console.error(err.message);
@@ -33,7 +33,16 @@ function setBotState(chatId, isActive, callback) {
   );
 }
 
+function setBasicData(chatId, tokenId, owner_address, callback) {
+  db.run(
+    'INSERT OR REPLACE INTO state (chat_id, tokenId, owner_address) VALUES (?, ?, ?)',
+    [chatId, tokenId],
+    callback
+  );
+}
+
 module.exports = {
   getBotState,
   setBotState,
+  setBasicData,
 };
